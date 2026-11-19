@@ -1,0 +1,13 @@
+# Basindaki / ONEMLI: sadece kok dizindeki data/ ve outputs/ yok sayilir.
+# '/' olmadan src/data/ gibi alt klasorler de yutulur (bu bir kere basimiza geldi).
+/data/
+/outputs/
+*.nii
+*.nii.gz
+*.tar
+*.tar.gz
+*.zip
+.venv/
+__pycache__/
+*.pyc
+.DS_Store

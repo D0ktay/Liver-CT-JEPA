@@ -1,0 +1,37 @@
+Copyright (c) 2026 D0ktay (https://github.com/D0ktay). All rights reserved.
+
+This repository is made publicly visible for viewing and reference only.
+It is NOT open source, and no licence is granted except as stated below.
+
+Permitted
+
+  You may view and read the contents of this repository on GitHub, and use
+  GitHub's own features (such as forking and starring) to the extent that the
+  GitHub Terms of Service require them to be available for public repositories.
+
+Not permitted without prior written permission from the copyright holder
+
+  - copying, reproducing or redistributing the source code, documentation,
+    figures or results, in whole or in part;
+  - modifying the material or creating derivative works from it;
+  - using the code, methods as implemented here, metrics, data splits,
+    configuration or results in any product, service, publication, abstract,
+    thesis or presentation;
+  - using any part of the material to train, fine-tune or evaluate machine
+    learning models;
+  - sublicensing, selling or otherwise commercially exploiting the material.
+
+A fork made through GitHub does not grant any right beyond viewing the
+material on GitHub.
+
+Third-party datasets, model weights and software referred to by this
+repository remain under their own licences and are not covered by this notice.
+
+THE MATERIAL IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE MATERIAL OR ITS USE.
+
+To request permission, open an issue at
+https://github.com/D0ktay/Liver-CT-JEPA/issues

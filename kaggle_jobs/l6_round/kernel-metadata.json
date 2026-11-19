@@ -1,0 +1,18 @@
+{
+  "id": "YOUR_KAGGLE_USERNAME/liver-l6-round",
+  "title": "liver l6 round",
+  "code_file": "run.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "dataset_sources": ["andrewmvd/liver-tumor-segmentation",
+                      "andrewmvd/liver-tumor-segmentation-part-2",
+                      "YOUR_KAGGLE_USERNAME/liver-ct-code",
+                      "YOUR_KAGGLE_USERNAME/l6-probes-round"],
+  "kernel_sources": [],
+  "competition_sources": [],
+  "model_sources": []
+}

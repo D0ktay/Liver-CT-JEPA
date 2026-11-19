@@ -1,0 +1,226 @@
+# On egitim korpusu -- LiverJEPA kendi ön eğitimi
+#
+# Kural 10: test / dis test hastasinin HICBIR taramasi, etiketsiz bile olsa,
+# buraya giremez. `src/data/pretrain_manifest.py` bunu assert eder.
+# Kural 18: bu gece icerik hash'i alinmaz (checksum: pending);
+# `scripts/lambda_bootstrap.sh` indirmeden sonra doldurur ve denetimi YENIDEN kosar.
+#
+# Hicbir yol kodda hardcode degil. Glob listesi hem yerel hem Kaggle yollarini icerir;
+# bulunmayan glob 0 hacim dondurur ve `n_expected` ile karsilastirilip UYARI basilir.
+
+# Dondurulmus dis test. Bu kaynaklardan TEK BIR TARAMA bile korpusa giremez.
+protected_sources:
+  - HCC_TACE_SEG
+
+# Icerme grafigi (docs/leakage-map.md L3/L5/L7). Gecisli kapanisi alinir:
+# bir derleme korunan kaynaga ULASIYORSA korpusa alinamaz.
+# Kaynak: arXiv:2508.13626 Tablo I; HF FLARE-MedFM/PancancerCTSeg; AbdomenAtlas 3.0 kaynak listesi.
+contains:
+  ABDOMENATLAS:   [LITS, MSD_TASK03, FLARE23, ABDOMENCT_1K, BTCV, CHAOS, AMOS, KITS23,
+                   TCIA_PANCREAS, CT_ORG, WORD]
+  ABDOMENATLAS_11: [LITS, MSD_TASK03, FLARE23]
+  FLARE23:        [LITS, HCC_TACE_SEG, AMOS, ABDOMENCT_1K]
+  FLARE22:        [LITS, ABDOMENCT_1K]
+  PANCANCER_CTSEG: [HCC_TACE_SEG]
+  # B9: AbdomenCT-1K yalniz LiTS/MSD degil, KiTS ve NIH Pancreas-CT'yi de derliyor
+  ABDOMENCT_1K:   [LITS, MSD_TASK03, KITS23, TCIA_PANCREAS, MSD_MSK, MSD_TASK07, MSD_TASK08, MSD_TASK10]
+  # L8 (21 Eyl 2026, dataset-verifier): TCIA'nin KENDI koleksiyon sayfasi yaziyor --
+  # "Birçok görüntü, LiTS yarismasindan odunc alinmistir." Ikincil kaynak ~130/140 diyor
+  # (Rister ve ark.), kesin sayi PRIMER kaynakla dogrulanmadi. Kenar kesin, sayi degil.
+  CT_ORG:         [LITS]
+  # WORD'un GENISLETILMIS / RAOS degerlendirme seti 20 MSD Liver (=LiTS) vakasi iceriyor.
+  # Cekirdek 150 vaka temiz; genisletilmis set AYRI kaynak adi tasir ve yasaktir.
+  WORD_RAOS:      [LITS]
+  # M3D-Seg: Rad-JEPA repo'sunun seg kolu bunu kullaniyor (kural 11)
+  M3D_SEG:        [LITS, MSD_TASK03, IRCADB]
+  # 3D-IRCADb-01 = LiTS kayit 28-47 (L1)
+  IRCADB:         [LITS]
+  MSD_TASK03:     [LITS]
+
+sources:
+  # ---------------------------------------------------------------- Katman A (MVE)
+  # Kaggle'da hazir, kernel'e dogrudan baglanir, indirme gerektirmez.
+  # DIKKAT: buradaki hacimlerin SADECE egitim/dogrulama kanonik kimlikleri korpusa girer;
+  # denetim (pretrain∩test) test katindakileri yakalar ve egitim durur.
+  - name: LITS
+    enabled: true
+    n_expected: 131
+    license: "CC BY-NC-ND 4.0"
+    url: "https://competitions.codalab.org/competitions/17094"
+    kaggle: ["andrewmvd/liver-tumor-segmentation", "andrewmvd/liver-tumor-segmentation-part-2"]
+    glob:
+      - "data/raw/LiTS/volume-*.nii"
+      - "/kaggle/input/**/volume-*.nii"
+
+  # 3D-IRCADb: LiTS 28-47 ile AYNI taramalar -> yeni hacim GETIRMEZ.
+  # Korpusa acilsa bile kanonik kimlik cakisir; ayri veri sanma (L1).
+  - name: IRCADB
+    enabled: false
+    n_expected: 20
+    license: "arastirma amacli, IRCAD"
+    url: "https://www.ircad.fr/research/data-sets/liver-segmentation-3d-ircadb-01/"
+    reason_blocked: |
+      L1: = LiTS kayit 28-47 (20/20 teyit edildi, outputs/kaggle131/ircadb_lits_match.csv).
+      Kanonik kimligi `IRCADB::N`, LiTS'inki `LITS|MSD_TASK03::(28..47)` -> ESLESMEZ,
+      yani kesisim denetimi bu vakalari LiTS test/fold kumesinde GOREMEZ. CT-ORG (L8) ile
+      birebir ayni korluk. Acmak icin once IRCADb -> LiTS numara eslemesi kanonik kimlige
+      baglanmali (3Dircadb1.N -> lits-(27+N)).
+
+  # ------------------------------------------------- Katman B (Lambda, dogrulanacak)
+  # dataset-verifier ciktisi gelene kadar enabled: false. Acmadan once
+  # erisim / lisans / vaka sayisi / LiTS-HCC kirliligi DOGRULANMALI.
+  # Asagidaki sayi/boyut/lisanslar 21 Eyl 2026'da dataset-verifier tarafindan
+  # BIRINCIL kaynaktan (HF tree API, Zenodo API, TCIA, GitHub README) dogrulandi.
+  # Kurumsal ayrim LiTS'ten (Munih/Nijmegen/Montreal/Tel Aviv/Strasbourg/Kudus) farkli;
+  # ama HICBIRI icerik hash'i ile teyit EDILMEDI -> Lambda'da dedup_hash zorunlu.
+  - name: KITS23
+    enabled: true                        # 22 Eyl 2026 gece kosusu (yalniz ON EGITIM, etiketsiz)
+    n_expected: 489
+    n_bytes_expected: 42115124313        # 42.1 GB, yalniz goruntuler
+    license: "CC BY-NC-SA 4.0"           # NC var; proje akademik, ticari niyet yok
+    url: "https://huggingface.co/datasets/neheller/KiTS-Challenge-Imaging"
+    disjoint_evidence: "University of Minnesota Medical Center + M Health Fairview (KiTS23 makalesi); bobrek tumoru nefrektomi kohortu. LiTS merkezleri ve MD Anderson ile kurum ortusmesi yok. Kurum duzeyi BEYAN; icerik karsilastirmasi YAPILMADI."
+    note: "Resmi HF kaynagi: images/case_NNNNN.nii.gz. Kaggle aynalarinin cogu KiTS19 -- KULLANMA."
+    glob: ["data/raw/kits23/images/case_*.nii.gz"]
+
+  - name: AMOS
+    enabled: true                        # 22 Eyl 2026 gece kosusu
+    n_expected: 500                      # CT = ID 0001-0500 (Tr 200 + Va 100 + Ts 200); 0501-0600 MRI ALINMAZ
+    n_bytes_expected: 24234336519        # 24.2 GB, CT+MRI toplam
+    license: "CC BY-SA 4.0"
+    url: "https://zenodo.org/api/records/7155725/files/amos22.zip/content"
+    md5: "67717b2a483ac0744c89c3016b7aaef7"
+    disjoint_evidence: "Longgang Bolge Halk + Merkez Hastanesi, Shenzhen (AMOS makalesi). LiTS 7 merkezi ve HCC-TACE-Seg (MD Anderson) ile kurum ortusmesi yok. Kurum duzeyi BEYAN; icerik karsilastirmasi YAPILMADI."
+    note: "readme: 'id numbers less than 500 belong to CT'. zip'te __MACOSX copu var. ilk vokseller >=0 cikti -> cache_build --hu-offset-auto."
+    glob: ["data/raw/amos22/images*/amos_0[0-4][0-9][0-9].nii.gz", "data/raw/amos22/images*/amos_0500.nii.gz"]
+
+  - name: CHAOS
+    enabled: false
+    n_expected: 40                       # hasta; 2775 kesit (1367 egitim + 1408 test)
+    license: "dogrulanmadi -- sayfada acik lisans adi yok, yalniz atif sarti"
+    url: "https://chaos.grand-challenge.org/Data/"
+    kaggle: ["omarxadel/chaos-combined-ct-mr-healthy-abdominal-organ"]
+    note: "Kayit/form gerekir. Hastalar SAGLIKLI donor adaylari -> LiTS populasyonuyla ortusemez."
+    glob: ["data/raw/CHAOS/**/*.nii.gz"]
+
+  - name: TCIA_PANCREAS
+    enabled: false
+    n_expected: 82                       # ⚠️ TCIA'nin kendi sayfasi ust tabloda 82, alt tabloda 80
+    n_bytes_expected: 10683111014        # ~9.95 GB
+    license: "CC BY 3.0"
+    url: "https://www.cancerimagingarchive.net/collection/pancreas-ct/"
+    note: "82 vs 80 tutarsizligi PRIMER kaynakta; indirmede gercek sayi yazilacak."
+    glob: ["data/raw/Pancreas-CT/**/*.nii.gz"]
+
+  - name: TOTALSEGMENTATOR_V2
+    enabled: true                        # 22 Eyl 2026 gece kosusu
+    n_expected: null                     # karaciger iceren alt kume (~920/1228); kesin sayi kosuda yazilir
+    n_bytes_expected: 23581218285        # 23.58 GB
+    license: "CC BY 4.0"
+    url: "https://zenodo.org/records/10047292/files/Totalsegmentator_dataset_v201.zip"
+    md5: "fe250e5718e0a3b5df4c4ea9d58a62fe"
+    disjoint_evidence: "University Hospital Basel rutin klinik verisi (Wasserthal 2023). LiTS merkezleri ve MD Anderson ile kurum ortusmesi yok. Kurum duzeyi BEYAN; icerik karsilastirmasi YAPILMADI."
+    note: |
+      DIKKAT: bu, TS `liver_lesions` egitim seti (Zenodo 20272572, 842 vaka) ile AYNI DEGIL.
+      1.5 mm izotropik. YALNIZ `segmentations/liver.nii.gz` dolu olan vakalar alinir
+      (scripts/lambda_night.py secer ve data/raw/ts_liver/ altina baglar); karaciger
+      maskesi yalniz KIRPMA KUTUSU icin kullanilir (pay 60 mm), egitim etiketi DEGIL.
+    glob: ["data/raw/ts_liver/*/ct.nii.gz"]
+
+  - name: WORD
+    enabled: false
+    n_expected: 150                      # cekirdek set: 100 egitim / 20 val / 30 test
+    license: "GNU GPL v3.0"
+    url: "https://github.com/HiLab-git/WORD"
+    note: "Form KALKTI (README). YALNIZ cekirdek 150 vaka; genisletilmis/RAOS seti YASAK (20 MSD Liver)."
+    glob: ["data/raw/WORD/**/word_*.nii.gz"]
+
+  # MSD'nin diger gorevleri: Task08_HepaticVessel LiTS ile AYNI hasta DEGIL
+  # (primer kaynak PMC9287542: Task08 = Memorial Sloan Kettering NY; Task03/LiTS = IRCAD Strasbourg).
+  # ANCAK Task07/08/09/10'un DORDU DE MSK kaynakli -> kendi aralarinda hasta tekrari riski var.
+  # Bu proje bunu hic kontrol etmedi. MSD-ici dedup YAPILMADI (22 Eyl: Task07/08/10 yine de acildi -- gerekce MSD_TASK07 notunda;
+  # bu setlerden biri DEGERLENDIRME olursa dedup SART).
+  - name: MSD_TASK08
+    enabled: true                        # 22 Eyl 2026 gece kosusu
+    n_expected: 443                      # 303 egitim + 140 test goruntusu (Lambda'da SAYILDI, 21 Eyl 2026)
+    license: "CC BY-SA 4.0"
+    url: "https://msd-for-monai.s3-us-west-2.amazonaws.com/Task08_HepaticVessel.tar"
+    disjoint_evidence: "Memorial Sloan Kettering, New York (dataset.json reference; PMC9287542). LiTS (Task03) IRCAD+6 merkez, HCC-TACE-Seg MD Anderson. Kurum duzeyi BEYAN. ⚠️ TCIA Colorectal-Liver-Metastases de MSK -> o set korpusa/teste ALINMAZ (ortusme ne kanitlandi ne dislandi)."
+    note: |
+      22 Eyl 2026: Task07 ve Task10 da ACILDI (asagida). MSK gorevleri arasi hasta tekrari (L10)
+      DENETLENMEDI; ucu de yalniz EGITIM tarafinda oldugu icin LiTS testine sizinti DEGIL, ama
+      korpus HACIM sayisiyla raporlanir, HASTA sayisiyla degil.
+      z'de karaciger bolgesine kirpilmis (195-255 mm), xy tam. Karaciger ORGAN etiketi YOK
+      (1=damar, 2=tumor). 303 etiketli vaka ayrica INCE AYARDA tumor etiketiyle kullanilir.
+      tar icinde AppleDouble `._*` dosyalari var -> indirmeden sonra silinir.
+    glob: ["data/raw/Task08_HepaticVessel/images*/hepaticvessel_*.nii.gz"]
+
+  - name: MSD_TASK07
+    enabled: true                        # 22 Eyl 2026: yalniz ON EGITIM
+    n_expected: 420                      # 281 egitim + 139 test goruntusu
+    license: "CC BY-SA 4.0"
+    url: "https://msd-for-monai.s3-us-west-2.amazonaws.com/Task07_Pancreas.tar"
+    disjoint_evidence: "Memorial Sloan Kettering, New York (PMC9287542). LiTS / HCC-TACE-Seg ile kurum ortusmesi yok. Kurum duzeyi BEYAN."
+    note: |
+      L10 (Task07/08/10 arasi MSK hasta tekrari) DENETLENMEDI ama bu kosuda ZARARSIZ: ucu de
+      yalniz EGITIM tarafinda, degerlendirme LiTS'te. Tekrar sizinti degil, yalnizca agirliktir.
+      ⚠️ SONUC: bu encoder MSD Task07/08/10 uzerinde HICBIR ZAMAN test edilemez.
+    glob: ["data/raw/Task07_Pancreas/images*/pancreas_*.nii.gz"]
+
+  - name: MSD_TASK10
+    enabled: true                        # 22 Eyl 2026: yalniz ON EGITIM
+    n_expected: 190                      # 126 egitim + 64 test goruntusu
+    license: "CC BY-SA 4.0"
+    url: "https://msd-for-monai.s3-us-west-2.amazonaws.com/Task10_Colon.tar"
+    disjoint_evidence: "Memorial Sloan Kettering, New York (PMC9287542). Kurum duzeyi BEYAN. L10 notu MSD_TASK07 ile ayni."
+    glob: ["data/raw/Task10_Colon/images*/colon_*.nii.gz"]
+
+  - name: MSD_MSK
+    enabled: false
+    n_expected: 1114                     # 420 + 443 + 61 + 190 (Task07/08/09/10, birincil tabloda 421 yazim tutarsizligi var)
+    license: "CC BY-SA 4.0"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9287542/"
+    blocked_until: "Task07<->08<->09<->10 arasi dedup_hash kosuldu ve temiz cikti"
+    glob: []   # tek tek acildi: MSD_TASK07 / MSD_TASK08 / MSD_TASK10 (Task09 alinmadi)
+
+  - name: FLARE23
+    enabled: false
+    reason_blocked: "L7: HCC-TACE-Seg iceriyor -> dis testimizi oldurur"
+    glob: []
+  - name: ABDOMENATLAS
+    enabled: false
+    reason_blocked: "L3: 17 kamu setinin derlemesi; LiTS + FLARE23 zinciri"
+    glob: []
+  - name: HCC_TACE_SEG
+    enabled: false
+    reason_blocked: "DIS TEST. Dondurulmus."
+    glob: []
+  - name: CT_ORG
+    enabled: false
+    reason_blocked: |
+      L8: TCIA'nin kendi koleksiyon sayfasi "Bircok goruntu LiTS yarismasindan odunc
+      alinmistir" diyor. 140 hacmin ~130'u (ikincil kaynak) LiTS kokenli.
+      Kaggle aynasi `thotakuldeep/ct-org-tcia` ayrica TUZAK: tek-kesit DICOM, 3D hacim degil.
+    glob: []
+  - name: WORD_RAOS
+    enabled: false
+    reason_blocked: "WORD genisletilmis/RAOS degerlendirme seti 20 MSD Liver (=LiTS) vakasi iceriyor"
+    glob: []
+  # B8 (leakage-auditor): asagidakiler LiTS iceriyor ama dosyalari anonim ->
+  # kanonik kimlikleri `X::N` olur, `LITS|MSD_TASK03::N` ile ESLESMEZ, yani
+  # pretrain∩test denetimi LiTS test/fold vakalarini onlarin icinde GOREMEZ.
+  # CT-ORG (L8) ile birebir ayni korluk; farki, CT-ORG'un acik yasagi vardi, bunlarin yoktu.
+  - name: ABDOMENCT_1K
+    enabled: false
+    reason_blocked: "L5: LiTS iceriyor, dosyalari anonim -> kanonik kimlik eslesmez, denetim kor"
+    glob: []
+  - name: FLARE22
+    enabled: false
+    reason_blocked: "L5: LiTS + AbdomenCT-1K zinciri; kimlik eslesmez, denetim kor"
+    glob: []
+  - name: M3D_SEG
+    enabled: false
+    reason_blocked: |
+      Kural 11: Rad-JEPA repo'sunun seg/ kolu bunu kullaniyor; LiTS + MSD Task03 + IRCADb
+      iceriyor. Tam alt-veri listesi primer kaynaktan dogrulanmadi -> eksik kenar riski.
+    glob: []

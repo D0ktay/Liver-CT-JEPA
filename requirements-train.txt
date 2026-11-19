@@ -1,0 +1,13 @@
+# Lambda / GPU egitim makinesi icin ASGARI bagimliliklar. TotalSegmentator BILEREK yok:
+# kendi torch surumunu cekip Lambda'nin CUDA'li torch'unu bozabiliyor. torch burada da
+# yok -- makinedeki CUDA'li kurulum kullanilir (venv --system-site-packages).
+numpy>=1.26,<2        # Lambda Stack torch numpy 1.x ABI ile derli; numpy 2 -> "Numpy is not available"
+scipy>=1.11
+pandas>=2.1
+nibabel>=5.2
+SimpleITK>=2.3
+scikit-image>=0.22
+PyYAML>=6.0
+tqdm>=4.66
+pytest>=8.0
+# kaggle BURADA YOK: CLI >=2.0 Python 3.11 ister, Lambda Stack 3.10 -> 'uv tool install kaggle' (ayri ortam)

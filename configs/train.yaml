@@ -1,0 +1,175 @@
+# Kendi 3D CT encoder'imiz: on egitim (JEPA / MAE / none) + segmentasyon.
+# Kodda hardcode sabit YOK -- esik, genislik, takvim burada.
+#
+# HU penceresi BURAYA KOPYALANMAZ. Tek kaynak configs/paths.yaml -> metrics.hu_window;
+# asagidaki referans src/jepa/encoder.py:load_cfg tarafindan cozulur. Iki tanim =
+# egitim/cikarim ayrismasi (test: test_hu_penceresi_paths_yamldan_okunuyor_kopyalanmiyor).
+
+geometry:
+  spacing_mm: [1.0, 1.0, 1.0]          # izotropik; anizotropi mm metriklerini bozuyor
+  hu_window_ref: "configs/paths.yaml#metrics.hu_window"
+  encoder_out_range: [-1.0, 1.0]       # hu_window(..., out_range=...) ile uygulanir
+
+# Piramit adimlari. s4 = 4 mm token: 1 token 64 mm^3.
+# Olctugumuz medyan lezyon (esdeger cap 10.03 mm) = 8.26 token, eksen basina 2.51.
+# Rad-JEPA token'i 3277 mm^3 -> ayni lezyon 0.16 token. Bu satiri buyutmek
+# olculmus basarisizligi geri getirir (tests/test_encoder.py).
+strides:
+  s1: 1
+  s2: 2
+  s4: 4
+  s8: 8
+  s16: 16
+
+profiles:
+  # conv_width: (s1, s2, s4) kanallari. Stride 1'de ConvNeXt blogu YOK (aktivasyon
+  # patlar, bellek 8x); stride 1 yalnizca decoder skip'i icin tasinir.
+  cok_kucuk:
+    patch: [48, 48, 48]
+    conv_width: [8, 16, 32]
+    conv_depth: [2, 2]                 # s2, s4 blok sayisi
+    s8:  {dim: 96,  depth: 2, heads: 4}
+    s16: {dim: 128, depth: 2, heads: 4}
+    drop_path: 0.0
+    params_m_beklenen: 0.80
+  kucuk:                               # MVE profili -- bugunku korpus (131 hacim)
+    patch: [64, 64, 64]
+    conv_width: [16, 32, 64]
+    conv_depth: [2, 2]
+    s8:  {dim: 160, depth: 3, heads: 8}
+    s16: {dim: 192, depth: 3, heads: 8}
+    drop_path: 0.05
+    params_m_beklenen: 2.75
+  orta:
+    patch: [96, 96, 96]
+    conv_width: [32, 64, 128]
+    conv_depth: [2, 2]
+    s8:  {dim: 320, depth: 6, heads: 8}
+    s16: {dim: 384, depth: 6, heads: 8}
+    drop_path: 0.1
+    params_m_beklenen: 19.84
+  buyuk:                               # pick_config BUNU ASLA DONDURMEZ (GPU'muz yok)
+    patch: [128, 128, 128]
+    conv_width: [48, 96, 192]
+    conv_depth: [3, 3]
+    s8:  {dim: 512, depth: 8, heads: 8}
+    s16: {dim: 640, depth: 8, heads: 8}
+    drop_path: 0.2
+    params_m_beklenen: null
+
+# pick_config(n_vol, gpu_h): korpus buyudukce profil buyur, ama GPU saati yoksa buyumez.
+pick:
+  n_small: 300
+  n_large: 1000
+  gpu_h_min: 8                         # bunun altinda her zaman "kucuk"
+  gpu_h_large: 24                      # n >= n_large icin gerekli GPU saati
+  small_name: kucuk
+  large_name: orta
+
+# JEPA/MAE maskesi stride-4 izgarasinda kurulur (4 mm cozunurluk).
+mask:
+  grid: s4
+  n_blocks: 4
+  # I-JEPA (arXiv:2301.08243): 4 hedef blok, her biri %15-20, baglam %85-100 EKSI hedef.
+  # Ablasyonu: tek blok 9.0 vs dort blok 54.2. MVE'deki %3-8 gorevi fazla kolaylastiriyordu.
+  block_frac: [0.12, 0.20]
+  union_frac: [0.30, 0.65]
+  context_frac: [0.85, 1.0]
+  min_visible_frac: 0.3                # bunun altinda cekilis reddedilir
+  min_target_tokens: 64
+  max_tries: 20
+
+predictor:
+  depth: 4
+  dim: 256
+  heads: 8
+  cross_only: true                     # sorgu = maskeli s4 konumlari, k/v = s16 token'lari
+
+ema:
+  start: 0.998                         # V-JEPA (arXiv:2404.08471); kucuk partide hedef daha yavas hareket etsin
+  end: 1.0                             # dogrusal
+
+collapse:
+  # SEZGISEL ESIKLER -- kaynak gerekiyor. MVE kosusunda saglikli taban olculecek
+  # ve bu iki sayi olculen degere gore guncellenecek (simdilik erken uyari amacli).
+  rankme_frac: 0.05                    # rankme < 0.05 * D
+  std_frac: 0.1                        # std_dim < 0.1 / sqrt(D)
+  patience: 3                          # 3 ardisik log -> CollapseError
+  log_every: 50
+
+optim:
+  lr: 5.0e-4
+  warmup_frac: 0.1
+  min_lr: 1.0e-5                       # kosinus sonu
+  weight_decay: 0.05
+  grad_clip: 1.0
+  batch: 2
+
+# ---- 22 Eyl 2026: MVE teshisinden sonra eklenen bolumler -------------------------
+# Ince ayar. MVE 4000 adim x batch 2 idi (nnU-Net takviminin ~%1.6'si) ve kayip hala
+# dusuyordu. nnU-Net LiTS: 1000 epoch x batch 2 (arXiv:1904.08128). Wald ve ark.
+# (arXiv:2410.23132): iki asamali isinma +0.6-1.0 DSC; Primus (Wald ve ark. 2025, kaynak: docs/EGITIM-PLANI.md):
+# AdamW 3e-4, wd 5e-2, LayerScale 0.1, grad clip 1.
+finetune:
+  steps: 80000
+  batch: 4
+  patch_by_profile: {orta: 112}        # ince ayar + cikarim yamasi (on egitim profilin 96'sinda kalir).
+  # GH200'de OLCULDU (21 Eyl): 96^3 b4 4.45 it/s 13 GB | 112^3 b4 2.90 it/s 21 GB |
+  # 128^3 b4 1.99 it/s 31 GB | 128^3 b2 3.86 it/s. Karaciger ~200 mm; nnU-Net 128^3 b2 kullanir.
+  # 112^3 b4: baglam genis, parti AdamW icin yeterli, 80k adim ~7.7 saat.
+  lr: 3.0e-4
+  freeze_encoder_steps: 2000           # asama 1: yalniz decoder (uc kolda da AYNI)
+  val_n: 8                             # EGITIM vakalarindan ayrilir; teste dokunmaz
+  val_every: 5000
+  p_tumor: 0.4                         # tumor merkezli yama
+  p_liver: 0.3                         # karaciger merkezli; kalani (0.3) govdede rastgele
+# Yama kaynagi olasiliklari (depoda olmayan grup atilir, kalan normalize edilir):
+  #   full       = karaciger+tumor etiketli (LiTS)          -- iki kanal da ogrenir
+  #   tumor_only = yalniz tumor etiketli (MSD Task08)        -- karaciger kanali kaybi KAPALI
+  #   liver_only = yalniz karaciger etiketli (TS-v2, AMOS)   -- tumor kanali kaybi KAPALI
+  # Duzgun secimde ~1220 liver_only hacim 96 LiTS'i bogar; tumor ogrenimi LiTS+Task08'de kalmali.
+  group_probs: {full: 0.5, tumor_only: 0.25, liver_only: 0.25}
+
+# On egitim. MVE: batch 2, 8000 adim, hedef bloklari izgaranin %3-8'i (I-JEPA: %15-20).
+pretrain:
+  steps: 60000
+  batch: 8
+  lr: 5.0e-4
+  vicreg_weight: 0.001                 # C-JEPA (arXiv:2410.19560): EMA tek basina cokusu onlemez
+  mae_norm_target: false               # 4^3 blok-normalize hedef = saf gurultu (MVE: kayip 0.95/1.0)
+  mask_fill: -1.0                      # hava; 0.0 = 25 HU yumusak doku gibi gorunuyordu
+  # 22 Eyl 00:05 UTC, pre_jepa BASLAMADAN ONCE karar (kanit: docs/oturum-gunlugu.md EK-3): her conv
+  # blogundan sonra maskeyi yeniden uygula (seyrek conv esdegeri; ConvNeXt V2 arXiv:2301.00808, SparK
+  # arXiv:2301.03580). 4000 adimlik A/B: hedef RankMe 33 -> 64/128; s16 dogrusal sonda 0.52 -> 0.65
+  # (rastgele ag 0.67: doldurmali tarif temsili rastgelenin ALTINA cekiyordu).
+  remask_conv: true
+  # 22 Eyl 01:20 UTC (yine baslamadan once): s8/s16 transformer asamalarinda maskeli token'lar diziden
+  # DUSURULUR, predictor yalniz gorunur baglami alir (I-JEPA; HySparK arXiv:2408.05815 Tablo 5).
+  # 4000 adimlik sonda, dengeli dogruluk: s16 rastgele .670 / v1 .523 / remask .652 / remask+drop .697;
+  # tum seviyeler .736 / .734 / .735 / .760. Uc duzeyde de ayni yon; ~%50 daha hizli.
+  drop_tokens: true
+
+layer_scale_init: 0.1                  # 1e-6 sig (2+2 blok) agda bloklari uzun sure kimlikte tutuyor
+
+inference:
+  overlap: 0.5                         # kayan pencere %50 ortusme
+  gauss_sigma_frac: 0.125              # sigma = 0.125 * yama
+  spacing_rtol: 0.005                  # hedef spacing'den BAGIL sapma -> FIRLAT.
+  # Mutlak 1e-3 degildi: resample sekli yuvarladigi icin ULASILAN spacing hedeften
+  # ~0.5/m bagil sapar (m = eksendeki voksel sayisi). 512x512 @ 0.7 mm LiTS hacmi
+  # 1 mm'ye orneklenince 1.001117 -> mutlak 1e-3 gercek veriyi reddediyordu.
+
+decoder:
+  width: [128, 96, 64, 32]             # s8 -> s4 -> s2 -> s1
+  deep_supervision_weights: [1.0, 0.5, 0.25]   # stride 1 / 2 / 4
+
+loss:
+  name: dice_ce                        # ANA KOL -- degismez
+  dice_eps: 1.0e-5                     # SAYISAL koruyucu; buyuk eps kucuk lezyonu cezasizlastirir
+  tversky: {alpha: 0.3, beta: 0.7}
+  focal: {gamma: 2.0}
+  margin:                              # marj-farkinda kol: make_loss("margin")
+    # Marj yaricapi BURAYA KOPYALANMAZ. Tek kaynak paths.yaml -> metrics.ablation_margin_mm;
+    # kopya olsa degerlendirme marji degistiginde egitim marji sessizce eski kalirdi.
+    margin_mm_ref: "configs/paths.yaml#metrics.ablation_margin_mm"
+    lam: 2.0                           # agirlik haritasi EDT ile (kural 6)

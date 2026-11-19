@@ -1,0 +1,395 @@
+<title>LiTS Kıyas Paneli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600&display=swap">
+<style>
+:root{
+  --ground:#F2F5F4; --surface:#FFFFFF; --ink:#15232A; --muted:#5A6A71; --line:#D8E0DE; --faint:#E9EEEC;
+  --accent:#0E7C86;
+  --m-ts:#6B5B95; --m-jepa:#0E7C86; --m-nojepa:#A07A45; --m-other:#7A8A90;
+  --good:#2F7D4F; --warn:#B7791F; --crit:#B23A48; --info:#3B6EA8;
+  --good-bg:#E4F1E8; --warn-bg:#F7EBD6; --crit-bg:#F5DFE2; --info-bg:#E1EAF5; --idle-bg:#ECEFEE;
+  --serif:"Source Serif 4", Georgia, "Times New Roman", serif;
+  --sans:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F171B; --surface:#152127; --ink:#E4ECEA; --muted:#93A4A9; --line:#27363D; --faint:#1C2A31;
+    --accent:#3FB6BF; --m-ts:#A597CF; --m-jepa:#3FB6BF; --m-nojepa:#D0A56A; --m-other:#8C9CA1;
+    --good:#6CC08E; --warn:#E3AE5A; --crit:#E8828F; --info:#7FA9DB;
+    --good-bg:#17301F; --warn-bg:#33270F; --crit-bg:#3A1C21; --info-bg:#172A3D; --idle-bg:#1D2A30;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F171B; --surface:#152127; --ink:#E4ECEA; --muted:#93A4A9; --line:#27363D; --faint:#1C2A31;
+  --accent:#3FB6BF; --m-ts:#A597CF; --m-jepa:#3FB6BF; --m-nojepa:#D0A56A; --m-other:#8C9CA1;
+  --good:#6CC08E; --warn:#E3AE5A; --crit:#E8828F; --info:#7FA9DB;
+  --good-bg:#17301F; --warn-bg:#33270F; --crit-bg:#3A1C21; --info-bg:#172A3D; --idle-bg:#1D2A30;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font:14px/1.55 var(--sans);margin:0}
+.wrap{max-width:900px;margin:0 auto;padding-inline:20px;padding-block:30px 60px;display:grid;gap:34px}
+header{display:grid;gap:7px}
+h1{font:600 clamp(27px,4.4vw,38px)/1.08 var(--serif);margin:0;text-wrap:balance;letter-spacing:-.012em}
+h2{font:600 19px/1.2 var(--serif);margin:0;text-wrap:balance}
+.lede{color:var(--muted);max-width:60ch;margin:0}
+.eyebrow{font:500 11px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.meta{color:var(--muted);font:12px var(--mono)}
+section{display:grid;gap:13px}
+.note{color:var(--muted);font-size:13px;max-width:66ch;margin:0}
+
+/* --- Basliktaki dort sayi --- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:15px 16px;
+      display:grid;gap:3px;align-content:start}
+.tile .k{font:500 11px/1.3 var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.tile .v{font:600 clamp(28px,5vw,34px)/1 var(--sans);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.tile .ci{font:11.5px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.tile .say{font-size:12.5px;color:var(--muted);margin-top:4px;text-wrap:pretty}
+.tile.crit .v{color:var(--crit)} .tile.warn .v{color:var(--warn)} .tile.good .v{color:var(--good)}
+
+/* --- Cubuklar --- */
+.bars{display:grid;gap:18px}
+.bar-group{display:grid;gap:7px}
+.bar-title{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;justify-content:space-between}
+.bar-title b{font-weight:600;font-size:14px}
+.bar-title span{color:var(--muted);font-size:12px}
+.bar-row{display:grid;grid-template-columns:clamp(74px,18vw,112px) 1fr auto;gap:10px;align-items:center}
+.bar-row .who{font:12.5px/1.3 var(--sans);color:var(--muted);overflow-wrap:anywhere}
+.track{position:relative;height:16px;border-radius:4px;background:var(--faint);overflow:hidden}
+.fill{position:absolute;inset-block:0;left:0;border-radius:4px}
+.ci-line{position:absolute;top:50%;height:2px;transform:translateY(-50%);opacity:.45;border-radius:2px}
+.bar-row .n{font:12.5px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pending{color:var(--muted);font:12.5px var(--mono)}
+
+/* --- Rozetler --- */
+.pill{display:inline-flex;align-items:center;gap:6px;font:500 10.5px/1 var(--mono);letter-spacing:.04em;
+      text-transform:uppercase;padding:4px 8px;border-radius:99px;width:max-content}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.s-done{color:var(--good);background:var(--good-bg)} .s-run{color:var(--info);background:var(--info-bg)}
+.s-wait{color:var(--muted);background:var(--idle-bg)} .s-err{color:var(--crit);background:var(--crit-bg)}
+.s-warn{color:var(--warn);background:var(--warn-bg)}
+
+.legend{display:flex;flex-wrap:wrap;gap:13px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
+
+.chart{overflow-x:auto}
+.chart svg{display:block;width:100%;min-width:420px;height:auto}
+.chart text{fill:var(--muted);font:11.5px var(--sans)}
+.chart .num{font:11px var(--mono);font-variant-numeric:tabular-nums}
+
+.findings{display:grid;gap:13px}
+.finding{display:grid;gap:4px}
+.finding b{font-weight:600}
+.finding p{margin:0;color:var(--muted);font-size:13px;max-width:70ch;text-wrap:pretty}
+
+details{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:0}
+details[open]{padding-bottom:14px}
+summary{cursor:pointer;padding:13px 16px;font:600 14px var(--sans);list-style:none;display:flex;
+        align-items:center;justify-content:space-between;gap:10px;border-radius:10px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"göster";font:11px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+details[open] summary::after{content:"gizle"}
+summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.det-body{padding-inline:16px;display:grid;gap:12px}
+
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--faint);vertical-align:top}
+th{font:500 10.5px/1.2 var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+td.n{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+.tbl{overflow-x:auto}
+.swatch{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:1px}
+
+.jobs{display:grid;gap:8px}
+.job{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;align-items:start}
+.job .name{font:500 12.5px/1.4 var(--mono);overflow-wrap:anywhere}
+.job .what{color:var(--muted);font-size:12.5px;grid-column:2}
+.empty{color:var(--muted);font-size:13px;padding:8px 0}
+@media (max-width:600px){.wrap{padding-inline:16px}.bar-row{grid-template-columns:1fr auto;}
+  .bar-row .who{grid-column:1/-1;margin-bottom:-4px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Karaciğer CT · LiTS · hasta düzeyi %95 güven aralığı</span>
+    <h1>LiTS Kıyas Paneli</h1>
+    <p class="lede">Dice iyi görünen bir model, ablasyon planlanacak kadar iyi mi? Aynı cetvelde
+      TotalSegmentator tabanı, Rad-JEPA ve JEPA'sız kontrol kolu.</p>
+    <span class="meta" id="updated">veri bekleniyor…</span>
+  </header>
+
+  <section aria-labelledby="h-key">
+    <h2 id="h-key" class="eyebrow" style="font-size:11px">Özet</h2>
+    <div class="tiles" id="tiles"><div class="empty">Yükleniyor…</div></div>
+  </section>
+
+  <section aria-labelledby="h-main">
+    <h2 id="h-main">Modeller yan yana</h2>
+    <p class="note">Çubuk = değer, altındaki ince çizgi = %95 güven aralığı. Aralıklar üst üste
+      biniyorsa aradaki fark rastlantı olabilir; fark iddia etmiyoruz.</p>
+    <div class="legend" id="legend"></div>
+    <div id="main-bars" class="bars"><div class="empty">Yükleniyor…</div></div>
+  </section>
+
+  <section aria-labelledby="h-size">
+    <h2 id="h-size">Küçük tümörler</h2>
+    <p class="note">Eşdeğer çapa göre lezyon bulma oranı. Küçük lezyon alanın en zayıf halkası.</p>
+    <div id="size-bars" class="bars"><div class="empty">Yükleniyor…</div></div>
+  </section>
+
+  <section aria-labelledby="h-margin">
+    <h2 id="h-margin">Marj ne kadar geniş olmalı?</h2>
+    <p class="note">AI maskesine 5 mm yerine daha geniş pay verilseydi, kaç lezyonda marj yine
+      tutmazdı. Kaçırılan lezyon ihlal sayılır.</p>
+    <div class="chart" id="margin"><div class="empty">Yükleniyor…</div></div>
+  </section>
+
+  <section aria-labelledby="h-find">
+    <h2 id="h-find">Bulgular</h2>
+    <div class="findings" id="findings"><div class="empty">Yükleniyor…</div></div>
+  </section>
+
+  <section>
+    <details id="d-table">
+      <summary>Tüm sayılar</summary>
+      <div class="det-body tbl" id="table"><div class="empty">Yükleniyor…</div></div>
+    </details>
+    <details id="d-jobs">
+      <summary>Kaggle işleri</summary>
+      <div class="det-body jobs" id="jobs"><div class="empty">Yükleniyor…</div></div>
+    </details>
+  </section>
+</div>
+
+<script>
+const MODEL_COLOR = {ts: "--m-ts", jepa: "--m-jepa", nojepa: "--m-nojepa"};
+
+// Ana bolumde yalniz dort olcut; gerisi "Tum sayilar" icinde.
+const MAIN = [
+  {k: "dice_median", l: "Dice (medyan)", hint: "örtüşme — literatürün baktığı sayı", up: true},
+  {k: "lesion_recall", l: "Lezyon bulma", hint: "kaç tümörü yakaladı", up: true},
+  {k: "margin_violation_rate_all", l: "5 mm marj ihlali", hint: "ablasyon planı kaç lezyonda tutmaz", up: false},
+];
+const MM = {k: "centroid_error_mm_median", l: "Merkez hatası, medyan (mm)", up: false};
+const ALL = [
+  {k: "dice_median", l: "Dice (medyan, tümörlü vaka)"},
+  {k: "lesion_recall", l: "Lezyon duyarlılığı (IoU ≥ 0.5)"},
+  {k: "lesion_precision", l: "Lezyon kesinliği"},
+  {k: "lesion_f1", l: "Lezyon F1"},
+  {k: "overlap_hit_rate", l: "Lezyona dokunma oranı"},
+  {k: "margin_violation_rate_all", l: "5 mm marj ihlali, tüm lezyonlar"},
+  {k: "margin_violation_rate_detected", l: "5 mm marj ihlali, bulunanlar"},
+  {k: "specificity_case", l: "Tümörsüz vakada özgüllük"},
+  {k: "lesion_recall[<=10mm]", l: "Duyarlılık ≤10 mm"},
+  {k: "lesion_recall[10-20mm]", l: "Duyarlılık 10–20 mm"},
+  {k: "lesion_recall[>20mm]", l: "Duyarlılık >20 mm"},
+  {k: "margin_violation_rate_all[<=10mm]", l: "Marj ihlali ≤10 mm"},
+  {k: "margin_violation_rate_all[10-20mm]", l: "Marj ihlali 10–20 mm"},
+  {k: "margin_violation_rate_all[>20mm]", l: "Marj ihlali >20 mm"},
+  MM,
+];
+const STRATA = [["<=10mm", "≤10 mm"], ["10-20mm", "10–20 mm"], [">20mm", ">20 mm"]];
+const STATUS = {done: ["s-done", "bitti"], run: ["s-run", "çalışıyor"], wait: ["s-wait", "sırada"],
+                err: ["s-err", "hata"], warn: ["s-warn", "dikkat"], ok: ["s-done", "çözüldü"],
+                open: ["s-wait", "açık"]};
+const state = {runs: [], jobs: [], findings: [], margin: []};
+
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const colorOf = r => css(MODEL_COLOR[r.model] || "--m-other");
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const fmt = (v, mm) => v == null || !isFinite(v) ? "—" : mm ? v.toFixed(2) : v.toFixed(3);
+const pct = v => v == null || !isFinite(v) ? "—" : Math.round(v * 100) + "%";
+const runs = () => state.runs.filter(r => r.show !== false).sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+// Ozet kartlari: "headline" isaretli kosu; yoksa sirada en sondaki. Isaretsiz birakilirsa
+// panele eklenen SON kol (ornegin bir ablasyon kolu) ozet diye gosterilir -- yanlis olur.
+const lead = () => {
+  const rs = runs().filter(r => r.metrics);
+  return rs.find(r => r.headline) || (rs.length ? rs[rs.length - 1] : null);
+};
+
+/* ---------- Ozet: dort buyuk sayi, en guncel kosudan ---------- */
+function renderTiles() {
+  const el = document.getElementById("tiles"), r = lead();
+  if (!r) { el.innerHTML = `<div class="empty">Henüz sonuç yok.</div>`; return; }
+  const g = k => r.metrics?.[k];
+  // Aciklama cumleleri sayidan TURETILIR; sabit metin baska bir kosu one gecince yanlis olur.
+  const n100 = m => Math.round(m.p * 100);
+  const tone = (v, bad) => v == null ? "" : (bad ? (v >= .5 ? "crit" : v >= .25 ? "warn" : "good")
+                                                 : (v >= .7 ? "good" : v >= .4 ? "warn" : "crit"));
+  const cards = [
+    {k: "Dice (medyan)", m: g("dice_median"), as: "num", bad: false,
+     say: m => `Tümörlü vakalarda örtüşme. İnsan gözlemciler arası uyum 0.742.`},
+    {k: "Lezyon bulma", m: g("lesion_recall"), as: "pct", bad: false,
+     say: m => `Her 100 tümörün ${n100(m)} tanesi bulunuyor, ${100 - n100(m)} tanesi kaçıyor.`},
+    {k: "5 mm marj ihlali", m: g("margin_violation_rate_all"), as: "pct", bad: true,
+     say: m => `Ablasyon planı lezyonların %${n100(m)}'inde tutmazdı.`},
+    {k: "≤10 mm bulma", m: g("lesion_recall[<=10mm]"), as: "pct", bad: false,
+     say: m => `1 cm'den küçük tümörlerin %${n100(m)}'i bulunuyor.`},
+  ];
+  el.innerHTML = cards.map(c => {
+    if (!c.m || !isFinite(c.m.p)) return "";
+    const v = c.as === "pct" ? pct(c.m.p) : fmt(c.m.p);
+    const ci = isFinite(c.m.lo) ? (c.as === "pct" ? `${pct(c.m.lo)} – ${pct(c.m.hi)}` : `${fmt(c.m.lo)} – ${fmt(c.m.hi)}`) : "";
+    return `<div class="tile ${tone(c.m.p, c.bad)}"><span class="k">${esc(c.k)}</span><span class="v">${v}</span>
+      <span class="ci">%95 GA ${ci}</span><span class="say">${esc(c.say(c.m))}</span></div>`;
+  }).join("") + `<div class="tile"><span class="k">Kaynak</span>
+      <span class="v" style="font-size:22px">${r.n_cases ?? "—"}</span>
+      <span class="ci">değerlendirilen vaka</span>
+      <span class="say">${esc(r.label || "")}</span></div>`;
+}
+
+/* ---------- Cubuk satiri ---------- */
+function barGroup(title, hint, rows) {
+  const body = rows.map(({run, m}) => {
+    const c = colorOf(run), who = esc(run.short || run.label || run.key);
+    if (!m || !isFinite(m.p)) {
+      return `<div class="bar-row"><span class="who">${who}</span>
+        <span class="pending">henüz yok</span><span class="n"></span></div>`;
+    }
+    const w = Math.max(0, Math.min(1, m.p)) * 100;
+    const lo = isFinite(m.lo) ? Math.max(0, Math.min(1, m.lo)) * 100 : null;
+    const hi = isFinite(m.hi) ? Math.max(0, Math.min(1, m.hi)) * 100 : null;
+    const ci = lo != null ? `<i class="ci-line" style="left:${lo}%;width:${hi - lo}%;background:${c}"></i>` : "";
+    const num = `${pct(m.p)}${lo != null ? ` <span style="color:var(--muted)">${pct(m.lo)}–${pct(m.hi)}</span>` : ""}`;
+    return `<div class="bar-row"><span class="who">${who}</span>
+      <span class="track"><i class="fill" style="width:${w}%;background:${c}"></i>${ci}</span>
+      <span class="n">${num}</span></div>`;
+  }).join("");
+  return `<div class="bar-group"><div class="bar-title"><b>${esc(title)}</b><span>${esc(hint)}</span></div>${body}</div>`;
+}
+
+function renderMainBars() {
+  const el = document.getElementById("main-bars"), rs = runs();
+  if (!rs.length) { el.innerHTML = `<div class="empty">Henüz sonuç yok.</div>`; return; }
+  let h = MAIN.map(m => barGroup(m.l, m.hint, rs.map(r => ({run: r, m: r.metrics?.[m.k]})))).join("");
+  // mm olcutu yuzde degil: ayri, sade satirlar
+  const mmRows = rs.map(r => {
+    const m = r.metrics?.[MM.k], who = esc(r.short || r.label || r.key), c = colorOf(r);
+    const txt = m && isFinite(m.p)
+      ? `${fmt(m.p, true)} mm <span style="color:var(--muted)">${isFinite(m.lo) ? `${fmt(m.lo, true)}–${fmt(m.hi, true)}` : ""}</span>`
+      : `<span class="pending">henüz yok</span>`;
+    return `<div class="bar-row"><span class="who">${who}</span>
+      <span style="color:${c};font:12.5px var(--mono);font-variant-numeric:tabular-nums">${txt}</span>
+      <span class="n"></span></div>`;
+  }).join("");
+  h += `<div class="bar-group"><div class="bar-title"><b>Merkez hatası</b>
+    <span>tümör merkezi kaç mm kayıyor</span></div>${mmRows}</div>`;
+  el.innerHTML = h;
+}
+
+function renderSizeBars() {
+  const el = document.getElementById("size-bars"), rs = runs();
+  if (!rs.length) { el.innerHTML = `<div class="empty">Henüz sonuç yok.</div>`; return; }
+  el.innerHTML = STRATA.map(([s, sl]) =>
+    barGroup(sl, "lezyon bulma oranı", rs.map(r => ({run: r, m: r.metrics?.[`lesion_recall[${s}]`]})))).join("");
+}
+
+function renderLegend() {
+  document.getElementById("legend").innerHTML = runs().map(r =>
+    `<span><i style="background:${colorOf(r)}"></i>${esc(r.short || r.label)}</span>`).join("");
+}
+
+/* ---------- Marj egrisi ---------- */
+function renderMargin() {
+  const el = document.getElementById("margin");
+  const series = state.margin.filter(s => Array.isArray(s.points) && s.points.length);
+  if (!series.length) { el.innerHTML = `<div class="empty">Henüz hesaplanmadı.</div>`; return; }
+  const W = 680, H = 260, L = 46, R = 116, T = 14, B = 42;
+  const xs = [...new Set(series.flatMap(s => s.points.map(p => p.m)))].sort((a, b) => a - b);
+  const xmin = xs[0], xmax = xs[xs.length - 1];
+  const X = v => L + (v - xmin) / Math.max(xmax - xmin, 1e-9) * (W - L - R);
+  const Y = v => T + (1 - v) * (H - T - B);
+  let g = "";
+  for (const t of [0, .25, .5, .75, 1]) {
+    g += `<line x1="${L}" x2="${W - R}" y1="${Y(t)}" y2="${Y(t)}" stroke="${css("--faint")}" stroke-width="1"/>`;
+    g += `<text x="${L - 8}" y="${Y(t) + 4}" text-anchor="end" class="num">${Math.round(t * 100)}%</text>`;
+  }
+  for (const m of xs) g += `<text x="${X(m)}" y="${H - B + 17}" text-anchor="middle" class="num">${m}</text>`;
+  g += `<text x="${(L + W - R) / 2}" y="${H - 6}" text-anchor="middle">planlama marjı (mm)</text>`;
+  const byKey = Object.fromEntries(state.runs.map(r => [r.key, r]));
+  series.forEach(s => {
+    const r = byKey[s.run] || {model: s.model}, c = colorOf(r);
+    const pts = [...s.points].sort((a, b) => a.m - b.m);
+    g += `<path d="${pts.map((p, i) => `${i ? "L" : "M"}${X(p.m)},${Y(p.all)}`).join(" ")}"
+           fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round"/>`;
+    pts.forEach(p => g += `<circle cx="${X(p.m)}" cy="${Y(p.all)}" r="3.4" fill="${c}"/>`);
+    const last = pts[pts.length - 1];
+    g += `<text x="${X(last.m) + 8}" y="${Y(last.all) + 4}" class="num" fill="${c}">${Math.round(last.all * 100)}%</text>`;
+    g += `<text x="${X(last.m) + 8}" y="${Y(last.all) + 17}" class="num">${esc(s.short || r.short || s.run)}</text>`;
+  });
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img"
+    aria-label="Planlama marjı büyüdükçe marj ihlali oranı" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
+}
+
+function renderFindings() {
+  const el = document.getElementById("findings");
+  const fs = [...state.findings].sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+  el.innerHTML = fs.length ? fs.map(f => {
+    const [cls, word] = STATUS[f.status] || STATUS.open;
+    return `<div class="finding"><span class="pill ${cls}">${esc(f.status_text || word)}</span>
+      <b>${esc(f.title)}</b><p>${esc(f.text)}</p></div>`;
+  }).join("") : `<div class="empty">Henüz bulgu yok.</div>`;
+}
+
+function renderTable() {
+  const el = document.getElementById("table"), rs = runs();
+  if (!rs.length) { el.innerHTML = `<div class="empty">Henüz sonuç yok.</div>`; return; }
+  let h = `<table><thead><tr><th>Ölçüt</th>${rs.map(r =>
+    `<th><span class="swatch" style="background:${colorOf(r)}"></span>${esc(r.short || r.label)}</th>`
+  ).join("")}</tr></thead><tbody>`;
+  h += `<tr><td>Değerlendirilen vaka</td>${rs.map(r => `<td class="n">${r.n_cases ?? "—"}</td>`).join("")}</tr>`;
+  for (const m of ALL) {
+    h += `<tr><td>${esc(m.l)}</td>${rs.map(r => {
+      const v = r.metrics?.[m.k], mm = m.k === MM.k;
+      return `<td class="n">${v && isFinite(v.p)
+        ? `${fmt(v.p, mm)} <span style="color:var(--muted)">[${fmt(v.lo, mm)}–${fmt(v.hi, mm)}]</span>` : "—"}</td>`;
+    }).join("")}</tr>`;
+  }
+  h += `<tr><td>Not</td>${rs.map(r =>
+    `<td style="color:var(--muted);font-size:12.5px">${esc(r.note || "")}</td>`).join("")}</tr>`;
+  el.innerHTML = h + `</tbody></table>`;
+}
+
+function renderJobs() {
+  const el = document.getElementById("jobs");
+  const js = [...state.jobs].sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+  el.innerHTML = js.length ? js.map(j => {
+    const [cls, word] = STATUS[j.status] || STATUS.wait;
+    return `<div class="job"><span class="pill ${cls}">${esc(j.status_text || word)}</span>
+      <span class="name">${esc(j.name)}</span>
+      <span class="what">${esc(j.result || j.what)}</span></div>`;
+  }).join("") : `<div class="empty">Henüz iş kaydı yok.</div>`;
+}
+
+function renderAll() {
+  renderTiles(); renderLegend(); renderMainBars(); renderSizeBars();
+  renderMargin(); renderFindings(); renderTable(); renderJobs();
+  const t = [...state.runs, ...state.jobs, ...state.findings].map(d => d.updated).filter(Boolean).sort();
+  document.getElementById("updated").textContent = t.length ? `son güncelleme: ${t[t.length - 1]}` : "veri bekleniyor…";
+}
+
+function showUnavailable() {
+  for (const id of ["tiles", "main-bars", "size-bars", "margin", "findings", "table", "jobs"]) {
+    document.getElementById(id).innerHTML =
+      `<div class="empty">Veriye bu görünümde erişilemiyor. Sayfayı claude.ai içinde açın.</div>`;
+  }
+}
+
+renderAll();
+(async () => {
+  const db = await window.claude?.use?.("db");
+  if (!db) { showUnavailable(); return; }
+  for (const name of ["runs", "jobs", "findings", "margin"]) {
+    db.collection(name).onSnapshot(snap => {
+      state[name] = snap.docs.filter(d => d.exists).map(d => ({key: d.id, ...d.data()}));
+      renderAll();
+    }, () => {});
+  }
+  window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change", renderAll);
+  new MutationObserver(renderAll).observe(document.documentElement,
+    {attributes: true, attributeFilter: ["data-theme"]});
+})();
+</script>

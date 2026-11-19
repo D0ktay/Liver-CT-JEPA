@@ -1,0 +1,22 @@
+# --- cekirdek ---
+# Intel Mac: son torch wheel'i 2.2.2, numpy 1.x ile derlendi -> numpy<2 zorunlu
+numpy>=1.26,<2; sys_platform == "darwin" and platform_machine == "x86_64"
+numpy>=1.26; sys_platform != "darwin" or platform_machine != "x86_64"
+scipy>=1.11
+pandas>=2.1
+nibabel>=5.2
+SimpleITK>=2.3
+scikit-image>=0.22
+PyYAML>=6.0
+tqdm>=4.66
+
+# --- baseline (CPU'da calisir, yavas) ---
+TotalSegmentator>=2.4
+
+# --- test ---
+pytest>=8.0
+
+# --- JEPA kolu (GPU gelince) ---
+# torch>=2.4
+# timm>=1.0
+# transformers>=4.44

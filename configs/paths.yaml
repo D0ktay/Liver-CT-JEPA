@@ -1,0 +1,33 @@
+# Tum yollar burada. Kod icinde hardcode yol YOK.
+data_root: data
+raw:
+  lits:            data/raw/LiTS              # volume-*.nii + segmentation-*.nii
+  ircadb:          data/raw/3Dircadb1         # 20 hasta
+  msd_task03:      data/raw/Task03_Liver      # LiTS ile AYNI goruntuler
+  abdomenatlas:    data/raw/AbdomenAtlas3.0Mini
+  hcc_tace:        data/raw/HCC-TACE-Seg      # dis test adayi
+interim:  data/interim
+processed: data/processed
+outputs:  outputs
+
+# Sizinti protokolu sabitleri
+leakage:
+  # 3D-IRCADb-01, LiTS egitim setinin 28-47 numarali kayitlari.
+  # DOGRULANMALI: hash ile teyit et, literatur bilgisine korukorune guvenme.
+  lits_ircadb_indices: [28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47]
+  # Ayni fiziksel taramanin farkli isimleri
+  source_aliases:
+    MSD-Liver: MSD_TASK03
+    Decathlon: MSD_TASK03
+    MSD-Hepatic: MSD_HEPATICVESSEL
+    MSD-HepaticVessel: MSD_HEPATICVESSEL
+    LiTS: LITS
+  # LiTS ve MSD Task03 ayni goruntuler -> tek kanonik kaynak
+  equivalent_sources: [["LITS", "MSD_TASK03"]]
+
+metrics:
+  lesion_match_iou: 0.5
+  ablation_margin_mm: 5.0
+  margin_sweep_mm: [5, 6, 7, 8, 9, 10]   # marj ek payi egrisi (src/metrics/margin_sweep.py)
+  size_strata_mm: [10.0, 20.0]     # <=10, 10-20, >20 (esdeger cap)
+  hu_window: [-200, 250]
